@@ -1,60 +1,133 @@
-# Face Recognition Service (AWS Learner Lab)
+# M346 Face Recognition Service
 
-Dieses Projekt stellt einen Cloud-Service bereit, der auf Basis von AWS S3 und AWS Lambda automatisch bekannte Persönlichkeiten (Celebrities) auf hochgeladenen Fotos erkennt und die detaillierten JSON-Resultate speichert. 
+Cloud-basierter Face-Recognition-Service mit AWS S3, AWS Lambda und AWS Rekognition.
+Beim Upload eines Bildes in den Input-Bucket wird automatisch eine Lambda-Funktion ausgeloest. Die Funktion analysiert das Bild mit Rekognition und speichert das Ergebnis als JSON im Output-Bucket.
 
-## Inhaltsverzeichnis
-- [Voraussetzungen](#voraussetzungen)
-- [Inbetriebnahme / Deployment](#inbetriebnahme--deployment)
-- [Nutzung und manueller Test](#nutzung-und-manueller-test)
-- [Code-Erklärung](#code-erklärung)
+## Team und Autorenschaft
 
----
+- Jonas Rutz
+- Alexej
+
+## Ziel des Projekts
+
+Dieses Projekt implementiert einen ereignisgesteuerten Cloud-Service, der bekannte Persoenlichkeiten in Bildern erkennt und die Resultate maschinenlesbar bereitstellt.
+
+Fachliche Ziele:
+
+- Event-Driven Processing mit AWS Services umsetzen
+- Cloud-Ressourcen automatisiert bereitstellen
+- Nachvollziehbare, reproduzierbare Tests dokumentieren
+- Wartbare und erweiterbare Loesung liefern
+
+## Architekturueberblick
+
+1. Bild wird in `face-rekog-in-<ACCOUNT_ID>` hochgeladen.
+2. S3 Event `ObjectCreated` triggert `FaceRekognitionFunction`.
+3. Lambda liest das Bild und ruft `rekognition.recognize_celebrities` auf.
+4. JSON-Resultat wird in `face-rekog-out-<ACCOUNT_ID>` gespeichert.
+5. `scripts/Test.sh` laedt das Resultat und zeigt die wichtigsten Werte lesbar an.
+
+## Repository-Struktur
+
+```text
+.
+|- README.md
+|- DOKUMENTATION.md
+|- CodeLegende.md
+|- scripts/
+|  |- Init.sh
+|  |- Test.sh
+|- src/
+	|- lambda_function.py
+```
 
 ## Voraussetzungen
-Damit die Skripte einwandfrei funktionieren, müssen folgende Bedingungen erfüllt sein:
-1. **AWS Umgebung**: Du befindest dich im _AWS Learner Lab_ (verwendet die Rolle `LabRole`).
-2. **AWS CLI**: Auf deinem Rechner (oder in der AWS CloudShell) ist die AWS Command Line Interface (CLI) installiert und mit deinen Credentials (aus den Learner Lab Details) konfiguriert.
-3. **Betriebssystem**: Du benötigst eine Bash-Umgebung (z.B. Git Bash für Windows, Linux, Mac oder AWS CloudShell).
 
----
+- AWS Learner Lab / AWS Account mit aktiver CLI-Anmeldung
+- AWS CLI v2
+- Bash-Umgebung (Git Bash, WSL oder Linux/macOS)
+- Python 3.x (fuer lokalen JSON-Output in `Test.sh`)
+- Region: `us-east-1`
 
-## Inbetriebnahme / Deployment
+## Setup und Deployment
 
-Die komplette Einrichtung der Cloud-Infrastruktur (S3 Buckets inkl. Trigger, Permissions und Lambda-Code) erfolgt vollautomatisch über das `Init.sh` Skript.
+Aus dem Ordner `scripts/` ausfuehren:
 
-1. Öffne dein Bash-Terminal und navigiere in den Ordner `scripts/`:
-   ```bash
-   cd scripts
-   ```
-2. Mache das Skript (falls nötig) ausführbar und starte es:
-   ```bash
-   bash Init.sh
-   ```
-3. Das Skript zeigt in der Konsole an, welche Komponenten erstellt werden (S3 Buckets, Zip-File, IAM Permissions, etc.). Am Ende meldet es `Setup Complete!`.
+```bash
+bash Init.sh
+```
 
-> **Hinweis:** Das Skript ist "idempotent". Das heisst, man kann es so oft ausführen, wie man möchte, ohne dass es duplizierte Ressourcen oder Fehler generiert. Das ist besonders praktisch, wenn man nach einer Anpassung am Python-Code (`src/lambda_function.py`) den Service kurzerhand updaten will.
+Was das Skript erledigt:
 
----
+- Ermittelt `ACCOUNT_ID`
+- Erstellt Input- und Output-Bucket (idempotent)
+- Packt die Lambda-Funktion
+- Erstellt oder aktualisiert Lambda
+- Setzt Umgebungsvariable `OUT_BUCKET`
+- Konfiguriert Invoke-Berechtigung S3 -> Lambda
+- Konfiguriert S3 Event Notification
 
-## Nutzung und manueller Test
+## Funktionstest durchfuehren
 
-Wenn die Cloud-Umgebung einmal steht, funktioniert der Service vollautomatisch, sobald ein neues Bild in den Input-Bucket geladen wird. 
+```bash
+bash Test.sh <pfad-zum-bild.jpg>
+```
 
-Wir haben dafür ein Test-Skript (`Test.sh`) geschrieben, mit dem dieser Prozess via Terminal ganz einfach simuliert werden kann:
+Erwartetes Verhalten:
 
-1. Suche ein Foto einer bekannten Persönlichkeit aus (z.B. `merkel.jpg`) und speichere es idealerweise direkt neben den Skripten.
-2. Führe im `scripts/` Ordner das Test-Skript mit dem Namen deines Bildes aus:
-   ```bash
-   bash Test.sh /pfad/zu/dem/bild/merkel.jpg
-   ```
+- Bild wird in den Input-Bucket hochgeladen
+- Lambda wird automatisch ausgefuehrt
+- JSON-Datei `<bildname>.json` entsteht im Output-Bucket
+- Terminal zeigt erkannte Celebrities mit `MatchConfidence`
 
-**Was macht das Skript?**
-1. Lädt dein Bild in den (mit deiner Account-ID benannten) In-Bucket auf S3 hoch.
-2. Wartet wenige Sekunden (die Lambda Funktion in der Cloud wird im Hintergrund automatisch getriggert, analysiert das Bild mit **AWS Rekognition** und speichert das Ergebnis im Out-Bucket).
-3. Das Test-Skript lädt anschliessend die fertige `.json` Datei aus dem Out-Bucket wieder herunter.
-4. Es analysiert die Datei und gibt dir die Ergebnisse (Gefundene Personen inkl. Wahrscheinlichkeit in %) gut lesbar im Terminal aus.
+## Testnachweise (mit Platzhaltern fuer Screenshots)
 
----
+Hinweis: Die finalen Screenshots werden vor der Abgabe eingefuegt.
 
-## Code-Erklärung
-Die exakte Erklärung der Zeilen in den Files (`lambda_function.py`, `Init.sh`, `Test.sh`) findet man in der separaten Datei **[CodeLegende.md](CodeLegende.md)**.
+1. Infrastruktur erfolgreich erstellt
+- Platzhalter: `docs/screenshots/01-init-success.png`
+- Inhalt: Ausgabe von `Init.sh` mit `Setup Complete`
+
+2. Testlauf erfolgreich
+- Platzhalter: `docs/screenshots/02-test-success.png`
+- Inhalt: Ausgabe von `Test.sh` mit erkannter Person und Confidence
+
+3. Resultatdatei im S3 Output-Bucket
+- Platzhalter: `docs/screenshots/03-s3-output-json.png`
+- Inhalt: S3 Console mit erzeugter `<bildname>.json`
+
+4. CloudWatch Logs der Lambda-Funktion
+- Platzhalter: `docs/screenshots/04-cloudwatch-log.png`
+- Inhalt: Logzeilen mit verarbeitetem Dateinamen und Erfolgsmeldung
+
+## Qualitaetsmerkmale
+
+- Reproduzierbarkeit: Deployment via `Init.sh` ohne manuelle Klickpfade
+- Robustheit: `set -e`, idempotente Bucket-/Lambda-Logik, Fehlerabbruch
+- Nachvollziehbarkeit: saubere Struktur, `CodeLegende.md`, ausfuehrliche Doku
+- Wartbarkeit: klare Trennung zwischen Deployment, Laufzeitcode und Testskript
+- Erweiterbarkeit: JSON-Output eignet sich fuer API/Frontend/Analytics
+
+## Sicherheit und Betrieb
+
+- Berechtigungen laufen ueber LabRole (Least Privilege im Lab-Rahmen)
+- S3 darf Lambda gezielt ueber `add-permission` aufrufen
+- Keine Secrets im Quellcode
+- Fehler und Laufzeitverhalten sind in CloudWatch nachvollziehbar
+
+## Bekannte Grenzen
+
+- Erkennung basiert auf `RecognizeCelebrities`, nicht auf generischer Gesichtserkennung
+- Konfidenzwerte koennen je nach Bildqualitaet stark variieren
+- Der Test nutzt feste Wartezeit (`sleep 8`), bei Last kann mehr Zeit noetig sein
+
+## Weiterfuehrung
+
+- Asynchrone Statuspruefung statt fixer Wartezeit
+- Speicherung zusaetzlicher Metadaten (Zeitstempel, Bildgroesse)
+- Optionale API (API Gateway + Lambda) fuer direkte Abfrage
+
+## Verweise
+
+- Technische Detaildokumentation: `DOKUMENTATION.md`
+- Code-Erklaerung auf Skript-Ebene: `CodeLegende.md`
