@@ -1,9 +1,0 @@
-# Ignore image files in src
-src/**/*.png
-src/**/*.jpg
-src/**/*.jpeg
-src/**/*.gif
-src/**/*.bmp
-src/**/*.webp
-src/**/*.avif
-src/**/*.svg
