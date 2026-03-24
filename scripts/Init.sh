@@ -1,4 +1,11 @@
 #!/bin/bash
+# Author: Alexej
+# Datum: 17.03.2026
+# Beschreibung: Dieses Skript richtet die AWS Face Recognition Service Umgebung ein, indem es die erforderlichen S3-Buckets erstellt, die Lambda-Funktion bereitstellt und die notwendigen Berechtigungen konfiguriert. Nach der Ausführung ist der Service bereit für Tests mit dem Test.sh Skript.
+# Quellen:
+# - https://docs.aws.amazon.com/cli/latest/reference/s3/
+# - https://docs.aws.amazon.com/cli/latest/reference/lambda/
+
 set -e
 
 REGION="us-east-1"
@@ -22,6 +29,7 @@ ROLE_ARN="arn:aws:iam::${ACCOUNT_ID}:role/LabRole"
 echo "    LabRole ARN: $ROLE_ARN"
 
 echo "[+] Creating S3 Buckets..."
+# Bucket creation is idempotent via head-bucket check.
 if ! aws s3api head-bucket --bucket "$IN_BUCKET" 2>/dev/null; then
     aws s3api create-bucket --bucket "$IN_BUCKET" --region "$REGION" >/dev/null
     echo "    Created In-Bucket: $IN_BUCKET"
@@ -46,6 +54,7 @@ fi
 cd ../scripts
 
 echo "[+] Deploying Lambda function..."
+# Update existing function if present, otherwise create from scratch.
 if aws lambda get-function --function-name "$LAMBDA_NAME" >/dev/null 2>&1; then
     echo "    Updating existing Lambda function code..."
     aws lambda update-function-code \
@@ -70,6 +79,7 @@ echo "    Waiting for Lambda function to be active..."
 aws lambda wait function-active-v2 --function-name "$LAMBDA_NAME"
 
 echo "[+] Configuring Lambda permissions..."
+# Replace invoke permission to avoid duplicate statement conflicts.
 LAMBDA_ARN=$(aws lambda get-function --function-name "$LAMBDA_NAME" --query 'Configuration.FunctionArn' --output text)
 
 aws lambda remove-permission --function-name "$LAMBDA_NAME" --statement-id s3invoke 2>/dev/null || true
@@ -83,6 +93,7 @@ aws lambda add-permission \
     --source-account "$ACCOUNT_ID" >/dev/null
 
 echo "[+] Configuring S3 Event Notification..."
+# Link S3 ObjectCreated events to Lambda function ARN.
 cat <<EOF > /tmp/s3-notification.json
 {
   "LambdaFunctionConfigurations": [

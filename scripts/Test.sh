@@ -1,4 +1,12 @@
 #!/bin/bash
+# Author: Alexej
+# Datum: 17.03.2026
+# Beschreibung: Dieses Skript testet den AWS Face Recognition Service, indem es ein Bild in den In-Bucket hochlädt und die Ergebnisse aus dem Out-Bucket abruft.
+# Quellen:
+# - https://docs.aws.amazon.com/cli/latest/reference/s3/cp.html
+# - https://docs.python.org/3/library/json.html
+
+
 set -e
 
 if [ "$#" -ne 1 ]; then
@@ -22,12 +30,14 @@ IN_BUCKET="face-rekog-in-${ACCOUNT_ID}"
 OUT_BUCKET="face-rekog-out-${ACCOUNT_ID}"
 
 echo "[+] Uploading $IMAGE_NAME to In-Bucket ($IN_BUCKET)..."
+# Upload test image to trigger S3->Lambda event chain.
 aws s3 cp "$IMAGE_PATH" "s3://${IN_BUCKET}/${IMAGE_NAME}" >/dev/null
 
 echo "[+] Waiting for Lambda Face Recognition..."
 sleep 8
 
 echo "[+] Fetching results from Out-Bucket ($OUT_BUCKET)..."
+# Download generated JSON and print key fields in a human-readable form.
 if aws s3 cp "s3://${OUT_BUCKET}/${JSON_NAME}" "/tmp/${JSON_NAME}" >/dev/null 2>&1; then
     echo "[+] Results downloaded successfully to /tmp/${JSON_NAME}"
     
